@@ -1,0 +1,52 @@
+# Machine Learning Coursera Project
+
+### Libraries
+```{r message=FALSE}
+library(caret)
+library(plyr)
+```
+
+First, let's set a seed for pseudo-random numbers in order to do all results reproducible
+```{r cache=TRUE, message=FALSE}
+set.seed(280484)
+```
+
+### Read the data from the csv files
+```{r cache=TRUE, message=FALSE}
+train<-read.csv("pml-training.csv",na.strings=c("NA",""))
+test<-read.csv("pml-testing.csv")
+```
+
+### Data cleansing and number of regressors reduction
+There are some variables that have only NAs values.
+There are other variables that are indicators and IDs, not regressors (as user name, timestamp, etc.)
+We eliminate both type of variables, reducing the dataset number of "columns"
+```{r cache=TRUE, message=FALSE}
+NAs <- apply(train,2,function(x) {sum(is.na(x))}) 
+clean_train <- train[,which(NAs == 0)]
+removeIndex <- grep("num_window|timestamp|X|user_name|new_window",names(clean_train))
+clean_train2 <- clean_train[,-removeIndex]
+```
+
+### Train - Test within "training" data
+
+For comparing different methods within the train data, we create a separate "validation" set.
+Validation test is not going to be used for training purposes, but for testing methods.
+```{r cache=TRUE, message=FALSE}
+inTrain <- createDataPartition(y=clean_train2$classe,p=0.6,list=FALSE)
+training<- clean_train2[inTrain,]
+validation<- clean_train2[-inTrain,]
+```
+
+### Fit the model using Bagging Trees
+```{r cache=TRUE, message=FALSE}
+modFit <- train(classe ~ .,data=training,method="treebag", trControl=trainControl(method="cv",number=4))
+```
+
+### Out-of-sample accuracy
+Looking at the result of the crossvalidaton done by the model-fitting process we can get the accuracy. For the out of sample error, we will look at the results of applying the model to the validation set.
+```{r message=FALSE}
+predictions_validation<-predict(modFit,validation)
+confusionMatrix(predictions_validation,validation$classe)
+```
+Accuracy in validation test is 97%-98%, so our out of sample error would we in the interval of 2%-3%

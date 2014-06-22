@@ -1,0 +1,149 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+<!--
+body, td
+	{font-family:sans-serif;
+	background-color:white;
+	font-size:12px;
+	margin:8px}
+tt, code, pre
+	{font-family:'DejaVu Sans Mono','Droid Sans Mono','Lucida Console',Consolas,Monaco,monospace}
+h1
+	{font-size:2.2em}
+h2
+	{font-size:1.8em}
+h3
+	{font-size:1.4em}
+h4
+	{font-size:1.0em}
+h5
+	{font-size:0.9em}
+h6
+	{font-size:0.8em}
+a:visited
+	{color:rgb(50%,0%,50%)}
+pre
+	{margin-top:0;
+	max-width:95%;
+	border:1px solid #ccc;
+	white-space:pre-wrap}
+pre code
+	{display:block;
+	padding:0.5em}
+code.r, code.cpp
+	{background-color:#F8F8F8}
+table, td, th
+	{border:none}
+blockquote
+	{color:#666666;
+	margin:0;
+	padding-left:1em;
+	border-left:0.5em #EEE solid}
+hr
+	{height:0px;
+	border-bottom:none;
+	border-top-width:thin;
+	border-top-style:dotted;
+	border-top-color:#999999}
+-->
+</style><style type="text/css">
+<!--
+pre .operator, pre .paren
+	{color:rgb(104,118,135)}
+pre .literal
+	{color:rgb(88,72,246)}
+pre .number
+	{color:rgb(0,0,205)}
+pre .comment
+	{color:rgb(76,136,107)}
+pre .keyword
+	{color:rgb(0,0,255)}
+pre .identifier
+	{color:rgb(0,0,0)}
+pre .string
+	{color:rgb(3,106,7)}
+-->
+</style>
+</head>
+<body>
+<h1>Machine Learning Coursera Project</h1>
+<h3>Libraries</h3>
+<pre><code class="r">library(caret)
+</code></pre>
+<pre><code>## Warning: package 'caret' was built under R version 2.15.3
+## Warning: package 'ggplot2' was built under R version 2.15.3
+</code></pre>
+<pre><code class="r">library(plyr)
+</code></pre>
+<pre><code>## Warning: package 'plyr' was built under R version 2.15.3
+</code></pre>
+<p>First, let's set a seed for pseudo-random numbers in order to do all results reproducible</p>
+<pre><code class="r">set.seed(280484)
+</code></pre>
+<h3>Read the data from the csv files</h3>
+<pre><code class="r">train &lt;- read.csv(&quot;pml-training.csv&quot;, na.strings = c(&quot;NA&quot;, &quot;&quot;))
+test &lt;- read.csv(&quot;pml-testing.csv&quot;)
+</code></pre>
+<h3>Data cleansing and number of regressors reduction</h3>
+<p>There are some variables that have only NAs values. There are other variables that are indicators and IDs, not regressors (as user name, timestamp, etc.) We eliminate both type of variables, reducing the dataset number of “columns”</p>
+<pre><code class="r">NAs &lt;- apply(train, 2, function(x) {
+    sum(is.na(x))
+})
+clean_train &lt;- train[, which(NAs == 0)]
+removeIndex &lt;- grep(&quot;num_window|timestamp|X|user_name|new_window&quot;, names(clean_train))
+clean_train2 &lt;- clean_train[, -removeIndex]
+</code></pre>
+<h3>Train - Test within “training” data</h3>
+<p>For comparing different methods within the train data, we create a separate “validation” set. Validation test is not going to be used for training purposes, but for testing methods.</p>
+<pre><code class="r">inTrain &lt;- createDataPartition(y = clean_train2$classe, p = 0.6, list = FALSE)
+training &lt;- clean_train2[inTrain, ]
+validation &lt;- clean_train2[-inTrain, ]
+</code></pre>
+<h3>Fit the model using Bagging Trees</h3>
+<pre><code class="r">modFit &lt;- train(classe ~ ., data = training, method = &quot;treebag&quot;, trControl = trainControl(method = &quot;cv&quot;, 
+    number = 4))
+</code></pre>
+<h3>Out-of-sample accuracy</h3>
+<p>Looking at the result of the crossvalidaton done by the model-fitting process we can get the accuracy. For the out of sample error, we will look at the results of applying the model to the validation set.</p>
+<pre><code class="r">predictions_validation &lt;- predict(modFit, validation)
+confusionMatrix(predictions_validation, validation$classe)
+</code></pre>
+<pre><code>## Warning: package 'e1071' was built under R version 2.15.3
+</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2212   28    4    2    1
+##          B    7 1457   19    7    6
+##          C    7   22 1326   28   12
+##          D    0    7   18 1244   13
+##          E    6    4    1    5 1410
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.975         
+##                  95% CI : (0.971, 0.978)
+##     No Information Rate : 0.284         
+##     P-Value [Acc &gt; NIR] : &lt; 2e-16       
+##                                         
+##                   Kappa : 0.968         
+##  Mcnemar's Test P-Value : 0.000143      
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.991    0.960    0.969    0.967    0.978
+## Specificity             0.994    0.994    0.989    0.994    0.998
+## Pos Pred Value          0.984    0.974    0.951    0.970    0.989
+## Neg Pred Value          0.996    0.990    0.993    0.994    0.995
+## Prevalence              0.284    0.193    0.174    0.164    0.184
+## Detection Rate          0.282    0.186    0.169    0.159    0.180
+## Detection Prevalence    0.286    0.191    0.178    0.163    0.182
+## Balanced Accuracy       0.992    0.977    0.979    0.981    0.988
+</code></pre>
+<p>Accuracy in validation test is 97%-98%, so our out of sample error would we in the interval of 2%-3%</p>
+</body>
+</html>
